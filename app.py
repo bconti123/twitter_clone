@@ -224,17 +224,16 @@ def profile():
         if User.authenticate(user.username, form.password.data):
             user.username = form.username.data
             user.email = form.email.data
-            user.image_url = form.image_url.data
-            user.header_image_url = form.header_image_url.data
+            user.image_url = form.image_url.data or "/static/images/default-pic.png"
+            user.header_image_url = form.header_image_url.data or "/static/images/warbler-hero.jpg"
             user.bio = form.bio.data
             
             db.session.commit()
-
+            flash("Profile Updated Successfully", "success")
             return redirect(f'/users/{g.user.id}')
         flash("Wrong password, try again", 'danger')
     return render_template(f'/users/edit.html', form=form)
     
-
 
 @app.route('/users/delete', methods=["POST"])
 def delete_user():
@@ -314,8 +313,10 @@ def homepage():
     """
 
     if g.user:
+        following_ids = [f.id for f in g.user.following] + [g.user.id]
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(following_ids))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
