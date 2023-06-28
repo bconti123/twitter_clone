@@ -125,7 +125,7 @@ class UserModelTestCase(TestCase):
 
         # Username is already taken. Ensure that the IntegrityError is raised
         with self.assertRaises(IntegrityError):
-            User.signup(
+            u1 = User.signup(
                 email="test21@test.com",
                 username="test1user",
                 password="2132123124",
