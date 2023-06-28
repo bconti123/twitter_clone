@@ -25,7 +25,6 @@ from app import app
 # Create our tables (we do this here, so we only create the tables
 # once for all tests --- in each test, we'll delete the data
 # and create fresh new clean test data
-db.drop_all()
 db.create_all()
 
 
@@ -40,12 +39,6 @@ class UserModelTestCase(TestCase):
         Follows.query.delete()
 
         self.client = app.test_client()
-
-    def tearDown(self):
-
-        User.query.delete()
-        Message.query.delete()
-        Follows.query.delete()
 
     def test_user_model(self):
         """Does basic model work?"""
@@ -120,28 +113,78 @@ class UserModelTestCase(TestCase):
         u1.followers.remove(u2)
         self.assertNotIn(u2, u1.followers)
     
-    def test_user_sign_up_success(self):
+    def test_user_sign_up_success_and_fail(self):
 
-        u1 = User.signup(
-                email="test1@test.com",
-                username="test1user",
-                password="HASHED_PASSWORD",
-                image_url=User.image_url.default.arg)
+        User.signup(
+            email="test1@test.com",
+            username="test1user",
+            password="HASHED_PASSWORD",
+            image_url=User.image_url.default.arg)
             
         db.session.commit()
 
-        self.assertEqual(len(u1.messages), 0)
-        self.assertEqual(len(u1.followers), 0)
-
-    def test_user_sign_up_fail(self):
+        # Username is already taken. Ensure that the IntegrityError is raised
         with self.assertRaises(IntegrityError):
-            u1 = User.signup(
-                    email="test1@test.com",
-                    username="test1user",
-                    password="HASHED_PASSWORD",
-                    image_url=User.image_url.default.arg)
-            
+            User.signup(
+                email="test21@test.com",
+                username="test1user",
+                password="2132123124",
+                image_url=User.image_url.default.arg)
+
+            # Commit the changes to trigger the IntegrityError
             db.session.commit()
         
+        # Password Fail: Ensure that the ValueError is raised
+        with self.assertRaises(ValueError):
+            User.signup(
+                email="test21@test.com",
+                username="test12user",
+                password=None,
+                image_url=User.image_url.default.arg)
+            
+            # Commit the changes to trigger the ValueError
+            db.session.commit()
+        
+        
+    def test_user_authenticate(self):
+        
+        User.signup(
+            email="test1@test.com",
+            username="test1user",
+            password="HASHED_PASSWORD",
+            image_url=User.image_url.default.arg)
+            
+        db.session.commit()
+
+        valid = User.authenticate("test1user", "HASHED_PASSWORD")
+
+        self.assertTrue(valid)
+    
+    def test_user_authenticate_fail_username(self):
+        User.signup(
+            email="test1@test.com",
+            username="test1user",
+            password="HASHED_PASSWORD",
+            image_url=User.image_url.default.arg)
+            
+        db.session.commit()
+
+        invalid = User.authenticate("test", "HASHED_PASSWORD")
+        
+        self.assertFalse(invalid)
+
+    def test_user_authenticate_fail_password(self):
+
+        User.signup(
+            email="test1@test.com",
+            username="test1user",
+            password="HASHED_PASSWORD",
+            image_url=User.image_url.default.arg)
+            
+        db.session.commit()
+
+        invalid = User.authenticate("test1user", "HASHED")
+        
+        self.assertFalse(invalid)
 
 
