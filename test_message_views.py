@@ -50,6 +50,7 @@ class MessageViewTestCase(TestCase):
                                     image_url=None)
 
         db.session.commit()
+    
 
     def test_add_message(self):
         """Can use add a message?"""
