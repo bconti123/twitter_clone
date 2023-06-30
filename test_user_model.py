@@ -27,18 +27,44 @@ from app import app
 # and create fresh new clean test data
 db.create_all()
 
-
 class UserModelTestCase(TestCase):
     """Test views for messages."""
 
     def setUp(self):
         """Create test client, add sample data."""
+        db.drop_all()
+        db.create_all()
 
-        User.query.delete()
-        Message.query.delete()
-        Follows.query.delete()
+        u1 = User.signup("test1",
+                         "test1@gmail.com",
+                         "HASHED_PASSWORD",
+                         None)
+        uid1 = 11111
+        u1.id = uid1
+        u2 = User.signup("test2",
+                         "test2@gmail.com",
+                         "HASHED_PASSWORD",
+                         None)
+        uid2 = 22222
+        u2.id = uid2
+
+        db.session.commit()
+
+        u1 = User.query.get(uid1)
+        u2 = User.query.get(uid2)
+
+        self.u1 = u1
+        self.uid1 = uid1
+
+        self.u2 = u2
+        self.uid2 = uid2
 
         self.client = app.test_client()
+
+    def tearDown(self):
+        res = super().tearDown()
+        db.session.rollback()
+        return res     
 
     def test_user_model(self):
         """Does basic model work?"""
@@ -57,7 +83,7 @@ class UserModelTestCase(TestCase):
         self.assertEqual(len(u.followers), 0)
     
     def test_repr(self):
-
+       
         u = User(id=124213,
             email="test@test.com",
             username="testuser",
@@ -67,124 +93,84 @@ class UserModelTestCase(TestCase):
         expected_repr = "<User #124213: testuser, test@test.com>"
         self.assertEqual(repr(u), expected_repr)
 
+# Follow Tests
     def test_is_following(self):
-
-        u1 = User(id=12343,
-                email="test1@test.com",
-                username="test1user",
-                password="HASHED_PASSWORD")
-        
-        u2 = User(id=12341,
-                email="test2@test.com",
-                username="test2user",
-                password="HASHED_PASSWORD")
-                
-        db.session.add(u1, u2)
+        self.u1.following.append(self.u2)
         db.session.commit()
 
+
         # is_following detect when u1 is following u2
-        u1.following.append(u2)
-        expected_following = '<User #12341: test2user, test2@test.com>'
-        self.assertEqual(repr(u1.following[0]), expected_following)
+        self.assertIn(self.u2, self.u1.following)
 
         # is_following detect when u1 is not following u2
-        u1.following.remove(u2)
-        self.assertNotIn(u2, u1.following)
+        self.u1.following.remove(self.u2)
+        self.assertNotIn(self.u2, self.u1.following)
 
     def test_is_followed_by(self):
 
-        u1 = User(id=12343,
-                email="test1@test.com",
-                username="test1user",
-                password="HASHED_PASSWORD")
-        
-        u2 = User(id=12341,
-                email="test2@test.com",
-                username="test2user",
-                password="HASHED_PASSWORD")
-                
-        db.session.add(u1, u2)
-        db.session.commit()
         # is_followed_by detect when u1 is followed by u2
-        u1.followers.append(u2)
-        self.assertIn(u2, u1.followers)
+        self.u1.followers.append(self.u2)
+        self.assertIn(self.u2, self.u1.followers)
 
         # is_followed_by detect when u1 is not followed by u2
-        u1.followers.remove(u2)
-        self.assertNotIn(u2, u1.followers)
-    
-    def test_user_sign_up_success_and_fail(self):
+        self.u1.followers.remove(self.u2)
+        self.assertNotIn(self.u2, self.u1.followers)
 
-        User.signup(
-            email="test1@test.com",
-            username="test1user",
-            password="HASHED_PASSWORD",
-            image_url=User.image_url.default.arg)
-            
+# Sign Up Tests
+    def test_user_sign_up_success(self):
+        valid = User.signup(
+            'testtest',
+            'testest@test.com',
+            'HASHED_PASSWORD',
+            None
+        )
+        uid_test = 33333
+        valid.id = uid_test
+        # To see if it works.
         db.session.commit()
-
+    
+    def test_user_sign_up_username_fail(self):
+        invalid_test = User.signup(
+            None,
+            "Test@test.com",
+            "HASHED_PASSWORD",
+            None)
+        uid_test = 12341234
+        invalid_test.id = uid_test    
         # Username is already taken. Ensure that the IntegrityError is raised
         with self.assertRaises(IntegrityError):
-            u1 = User.signup(
-                email="test21@test.com",
-                username="test1user",
-                password="2132123124",
-                image_url=User.image_url.default.arg)
-
-            # Commit the changes to trigger the IntegrityError
             db.session.commit()
-        
+    
+    def test_user_sign_up_password_fail(self):
         # Password Fail: Ensure that the ValueError is raised
+        
+        # To see if password is empty
         with self.assertRaises(ValueError):
             User.signup(
-                email="test21@test.com",
-                username="test12user",
-                password=None,
-                image_url=User.image_url.default.arg)
-            
-            # Commit the changes to trigger the ValueError
-            db.session.commit()
+                'testtest',
+                'test@testtest.com',
+                "",
+                None
+            )
         
-        
+        with self.assertRaises(ValueError):
+            User.signup(
+                'testtest',
+                'test@testtest.com',
+                None,
+                None
+            )      
+# Authenticate Tests
+#         
     def test_user_authenticate(self):
-        
-        User.signup(
-            email="test1@test.com",
-            username="test1user",
-            password="HASHED_PASSWORD",
-            image_url=User.image_url.default.arg)
-            
-        db.session.commit()
-
-        valid = User.authenticate("test1user", "HASHED_PASSWORD")
-
-        self.assertTrue(valid)
+        # To see if username and password are correct
+        self.assertTrue(User.authenticate(self.u1.username, "HASHED_PASSWORD"))
     
     def test_user_authenticate_fail_username(self):
-        User.signup(
-            email="test1@test.com",
-            username="test1user",
-            password="HASHED_PASSWORD",
-            image_url=User.image_url.default.arg)
-            
-        db.session.commit()
-
-        invalid = User.authenticate("test", "HASHED_PASSWORD")
+        # To see if username is incorrect
+        self.assertFalse(User.authenticate("Fake", "HASHED_PASSWORD"))
         
-        self.assertFalse(invalid)
-
     def test_user_authenticate_fail_password(self):
-
-        User.signup(
-            email="test1@test.com",
-            username="test1user",
-            password="HASHED_PASSWORD",
-            image_url=User.image_url.default.arg)
-            
-        db.session.commit()
-
-        invalid = User.authenticate("test1user", "HASHED")
-        
-        self.assertFalse(invalid)
-
+        # To see if password is incorrect
+        self.assertFalse(User.authenticate(self.u1.username, "HASHED"))
 
