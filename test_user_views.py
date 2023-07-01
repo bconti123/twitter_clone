@@ -112,3 +112,30 @@ class UserViewTestCase(TestCase):
             # Ensure the message list does not exist
             self.assertNotIn('list-group', str(resp.data))
             self.assertNotIn('messages', str(resp.data))
+    
+    def test_404_page(self):
+        """ Can see 404 page? If any query is not existed """
+
+        with self.client as c:
+            resp = c.get(f'/users/9999999999')
+            self.assertIn('Sorry', str(resp.data))
+            self.assertEqual(resp.status_code, 404)
+
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser_id
+            
+            resp = c.get(f'/users/999999999/following')
+            self.assertIn('Sorry', str(resp.data))
+            self.assertEqual(resp.status_code, 404)
+
+            resp = c.get(f'/users/999999999/followers')
+            self.assertIn('Sorry', str(resp.data))
+            self.assertEqual(resp.status_code, 404)
+
+            resp = c.post(f'/users/follow/9999999')
+            self.assertIn('Sorry', str(resp.data))
+            self.assertEqual(resp.status_code, 404)
+
+            resp = c.post(f'/users/stop-following/9999999')
+            self.assertIn('Sorry', str(resp.data))
+            self.assertEqual(resp.status_code, 404)

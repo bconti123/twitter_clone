@@ -155,4 +155,18 @@ class MessageViewTestCase(TestCase):
             self.assertEqual(resp.status_code, 200)
             self.assertIn("Access unauthorized", str(resp.data))
 
+    def test_404_page(self):
+        """ Can see 404 page? If any query is not existed """
+
+        with self.client as c:
+            resp = c.get(f'/messages/9999999999')
+            self.assertIn('Sorry', str(resp.data))
+            self.assertEqual(resp.status_code, 404)
+
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser_id
+            
+            resp = c.post(f'/messages/999999999/delete')
+            self.assertIn('Sorry', str(resp.data))
+            self.assertEqual(resp.status_code, 404)
             
