@@ -51,7 +51,8 @@ class UserViewTestCase(TestCase):
         self.testuser.id = self.testuser_id
 
         db.session.commit()
-
+        
+    # Follower Page Tests
     def test_follower_page_login(self):
         """Logged in, can see follower page? """
 
@@ -71,6 +72,7 @@ class UserViewTestCase(TestCase):
 
             self.assertIn("Access unauthorized.", str(resp.data))
     
+    # Following Page Tests
     def test_following_page_login(self):
         """Logged in, can see following page? """
         with self.client as c:
@@ -87,5 +89,26 @@ class UserViewTestCase(TestCase):
         with self.client as c:
             resp = c.get(f'/users/{self.testuser_id}/following', follow_redirects=True)
 
-            self.assertIn("Access unauthorized.", str(resp.data))    
+            self.assertIn("Access unauthorized.", str(resp.data))
+    
+    ## Homepage Tests
+    def test_homepage_logged_in(self):
+        """ Logged in, you can see the message list in homepage? """
         
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+            
+            resp = c.get('/')
+            # Ensure the message list is appeared
+            self.assertIn('list-group', str(resp.data))
+            self.assertIn('messages', str(resp.data))
+    
+    def test_homepage_logged_in(self):
+        """ Logged out, disallowed from the message list in homepage? """
+
+        with self.client as c:
+            resp = c.get('/')
+            # Ensure the message list does not exist
+            self.assertNotIn('list-group', str(resp.data))
+            self.assertNotIn('messages', str(resp.data))
