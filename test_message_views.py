@@ -2,7 +2,7 @@
 
 # run these tests like:
 #
-#    FLASK_ENV=production python -m unittest test_message_views.py
+#    FLASK_ENV=production python3 -m unittest -v test_message_views.py
 
 
 import os
@@ -48,10 +48,13 @@ class MessageViewTestCase(TestCase):
                                     email="test@test.com",
                                     password="testuser",
                                     image_url=None)
+        
+        self.testuser_id = 8989
+        self.testuser.id = self.testuser_id
 
         db.session.commit()
     
-
+    # Add Message Tests
     def test_add_message(self):
         """Can use add a message?"""
 
@@ -64,7 +67,6 @@ class MessageViewTestCase(TestCase):
 
             # Now, that session setting is saved, so we can have
             # the rest of ours test
-
             resp = c.post("/messages/new", data={"text": "Hello"})
 
             # Make sure it redirects
@@ -72,3 +74,85 @@ class MessageViewTestCase(TestCase):
 
             msg = Message.query.one()
             self.assertEqual(msg.text, "Hello")
+    
+    def test_add_message_no_session(self):
+        """ Cannot add message while user is logged out. """
+        with self.client as c:
+            resp = c.post("/messages/new", data={"text": "Hello"}, follow_redirects=True)
+
+            # Make sure it redirects
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("Access unauthorized", str(resp.data))
+
+    def test_add_message_invalid_user(self):
+        """ Add message is restricted without log in? """
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = 532451235 # User does not exist
+            resp = c.post("/messages/new", data={"text": "Hello"}, follow_redirects=True)
+            # Make sure it redirects
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("Access unauthorized", str(resp.data))
+
+    def test_message_show(self):
+        """ Can show message? """
+        m = Message(
+            id=1234,
+            text="a message",
+            user_id=self.testuser_id
+        )
+
+        db.session.add(m)
+        db.session.commit()
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+            
+            m = Message.query.get(1234)
+
+            resp = c.get(f'/messages/{m.id}')
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn(m.text, str(resp.data))
+
+
+    # Delete Message Tests      
+    def test_delete_message(self):
+        """Can use delete a message?"""
+        m = Message(
+            id=12345,
+            text="a message",
+            user_id=self.testuser_id
+        )
+        db.session.add(m)
+        db.session.commit()
+
+        # User Id is in session should detect user logged in
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp = c.post(f"/messages/12345/delete", follow_redirects=True)
+            # Make sure it redirects
+            self.assertEqual(resp.status_code, 200)
+
+            m = Message.query.get(12345)
+            self.assertIsNone(m)
+    
+    def test_message_delete_no_authentication(self):
+        """ Is delete message restricted without user? """
+
+        m = Message(
+                    id=1234,
+                    text="a message",
+                    user_id=self.testuser_id
+        )
+        db.session.add(m)
+        db.session.commit()
+        
+        with self.client as c:
+            resp = c.post(f"/messages/1234/delete", follow_redirects=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("Access unauthorized", str(resp.data))
+
+            
