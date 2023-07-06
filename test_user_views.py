@@ -51,7 +51,12 @@ class UserViewTestCase(TestCase):
         self.testuser.id = self.testuser_id
 
         db.session.commit()
-        
+    
+    def tearDown(self):
+        resp = super().tearDown()
+        db.session.rollback()
+        return resp
+
     # Follower Page Tests
     def test_follower_page_login(self):
         """Logged in, can see follower page? """
